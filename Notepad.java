@@ -1,4 +1,6 @@
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.print.*;
 import java.io.*;
 import java.net.URI;
@@ -24,6 +26,41 @@ public class Notepad {
         f.setLayout(new BorderLayout());
 
         ta = new JTextArea();
+        // Placeholder logic
+        String placeholder = "Start typing here...";
+        ta.setText(placeholder);
+        ta.setForeground(Color.GRAY);
+        ta.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusGained(java.awt.event.FocusEvent e) {
+                if (ta.getText().equals(placeholder)) {
+                    ta.setText("");
+                    ta.setForeground(Color.BLACK);
+                }
+            }
+            public void focusLost(java.awt.event.FocusEvent e) {
+                if (ta.getText().isEmpty()) {
+                    ta.setText(placeholder);
+                    ta.setForeground(Color.GRAY);
+                }
+            }
+        });
+        // Remove placeholder if user starts typing while it's present
+        ta.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent e) {
+                if (ta.getText().equals(placeholder)) {
+                    ta.setText("");
+                    ta.setForeground(Color.BLACK);
+                }
+            }
+        });
+
+        // Add 'Clear All' button above the text area
+        JButton clearAllBtn = new JButton("Clear All");
+        clearAllBtn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        clearAllBtn.addActionListener(e -> ta.setText(""));
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        topPanel.add(clearAllBtn);
+        f.add(topPanel, BorderLayout.NORTH);
 
         // Menu bar and menus
         mb = new JMenuBar();
@@ -168,6 +205,7 @@ public class Notepad {
         // Format menu
         wordWrap = new JCheckBoxMenuItem("Word Wrap");
         fontMenu = new JMenuItem("Font...");
+        JMenuItem bgColorMenu = new JMenuItem("Background Color...");
         wordWrap.setSelected(true);
         wordWrap.addActionListener(e -> ta.setLineWrap(wordWrap.isSelected()));
         fontMenu.addActionListener(e -> {
@@ -176,9 +214,14 @@ public class Notepad {
             String font = (String) JOptionPane.showInputDialog(f, "Choose Font:", "Font", JOptionPane.PLAIN_MESSAGE, null, fonts, ta.getFont().getFamily());
             if (font != null) ta.setFont(new Font(font, Font.PLAIN, 14));
         });
+        bgColorMenu.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(f, "Choose Background Color", ta.getBackground());
+            if (newColor != null) ta.setBackground(newColor);
+        });
         format.removeAll();
         format.add(wordWrap);
         format.add(fontMenu);
+        format.add(bgColorMenu);
 
         // View menu
         statusBarMenu = new JMenuItem("Status Bar");
@@ -214,22 +257,66 @@ public class Notepad {
         f.setJMenuBar(mb);
 
         // Text area with scroll pane
-        ta.setFont(new Font("Consolas", Font.PLAIN, 14));
+        ta.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         ta.setLineWrap(true);
         JScrollPane scrollPane = new JScrollPane(ta);
         f.add(scrollPane, BorderLayout.CENTER);
 
         // Status bar
-        statusBar = new JLabel("Ln 1, Col 1    100%    Windows (CRLF)    UTF-8");
+        statusBar = new JLabel();
         statusBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
         f.add(statusBar, BorderLayout.SOUTH);
         statusBar.setVisible(isStatusBarVisible);
+
+        // Update status bar with line and column info
+        ta.addCaretListener(e -> {
+            try {
+                int caretPos = ta.getCaretPosition();
+                int line = ta.getLineOfOffset(caretPos);
+                int col = caretPos - ta.getLineStartOffset(line);
+                statusBar.setText("Ln " + (line + 1) + ", Col " + (col + 1));
+            } catch (Exception ex) {
+                statusBar.setText("");
+            }
+        });
+        // Initialize status bar
+        statusBar.setText("Ln 1, Col 1");
+
+        // Auto-save feature: save every 60 seconds if a file is open
+        new javax.swing.Timer(60000, new ActionListener() {
+            public void actionPerformed(ActionEvent evt) {
+                if (currentFile != null) {
+                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(currentFile))) {
+                        ta.write(writer);
+                        // Show auto-save message
+                        String oldStatus = statusBar.getText();
+                        statusBar.setText("Auto-saved");
+                        new javax.swing.Timer(1500, new ActionListener() {
+                            public void actionPerformed(ActionEvent e) {
+                                statusBar.setText(oldStatus);
+                            }
+                        }) {{ setRepeats(false); }}.start();
+                    } catch (IOException ex) {
+                        // Optionally show error
+                    }
+                }
+            }
+        }).start();
 
         f.setLocationRelativeTo(null);
         f.setVisible(true);
     }
 
     public static void main(String[] args) {
+        try {
+            Font menuFont = new Font("Segoe UI", Font.PLAIN, 14);
+            UIManager.put("Menu.font", menuFont);
+            UIManager.put("MenuItem.font", menuFont);
+            UIManager.put("MenuItem.acceleratorFont", menuFont);
+            UIManager.put("MenuItem.acceleratorForeground", Color.BLACK);
+        } catch (Exception e) {
+            // Ignore if not supported
+        }
         SwingUtilities.invokeLater(Notepad::new);
     }
 }
