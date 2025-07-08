@@ -18,6 +18,7 @@ public class Notepad {
     JCheckBoxMenuItem wordWrap;
     JMenuItem fontMenu, statusBarMenu, viewHelp, about;
     boolean isStatusBarVisible = true;
+    Color normalTextColor = Color.BLACK; // Track intended text color (moved to instance variable)
 
     public Notepad() {
         f = new JFrame("Untitled - Notepad");
@@ -34,7 +35,7 @@ public class Notepad {
             public void focusGained(java.awt.event.FocusEvent e) {
                 if (ta.getText().equals(placeholder)) {
                     ta.setText("");
-                    ta.setForeground(Color.BLACK);
+                    ta.setForeground(normalTextColor);
                 }
             }
             public void focusLost(java.awt.event.FocusEvent e) {
@@ -49,7 +50,7 @@ public class Notepad {
             public void keyTyped(java.awt.event.KeyEvent e) {
                 if (ta.getText().equals(placeholder)) {
                     ta.setText("");
-                    ta.setForeground(Color.BLACK);
+                    ta.setForeground(normalTextColor);
                 }
             }
         });
@@ -216,7 +217,21 @@ public class Notepad {
         });
         bgColorMenu.addActionListener(e -> {
             Color newColor = JColorChooser.showDialog(f, "Choose Background Color", ta.getBackground());
-            if (newColor != null) ta.setBackground(newColor);
+            if (newColor != null) {
+                ta.setBackground(newColor);
+                int brightness = (int)Math.sqrt(
+                    newColor.getRed() * newColor.getRed() * 0.241 +
+                    newColor.getGreen() * newColor.getGreen() * 0.691 +
+                    newColor.getBlue() * newColor.getBlue() * 0.068);
+                if (brightness < 130) {
+                    normalTextColor = Color.WHITE;
+                } else {
+                    normalTextColor = Color.BLACK;
+                }
+                if (!ta.getText().equals(placeholder)) {
+                    ta.setForeground(normalTextColor);
+                }
+            }
         });
         format.removeAll();
         format.add(wordWrap);
